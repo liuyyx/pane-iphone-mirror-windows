@@ -129,19 +129,28 @@ def _mux_listening() -> bool:
         sock.close()
 
 
+def _decode_console(data: bytes | None) -> str:
+    """Decode console output with the Windows OEM code page; never raise."""
+    if not data:
+        return ""
+    try:
+        return data.decode("oem", "replace")
+    except LookupError:
+        return data.decode("utf-8", "replace")
+
+
 def _service_state(name: str) -> str | None:
     try:
         completed = subprocess.run(
             ["sc", "query", name],
             capture_output=True,
-            text=True,
             timeout=8,
             check=False,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
     except (OSError, subprocess.TimeoutExpired):
         return None
-    for line in completed.stdout.splitlines():
+    for line in _decode_console(completed.stdout).splitlines():
         if "STATE" in line:
             parts = line.split()
             if parts:
